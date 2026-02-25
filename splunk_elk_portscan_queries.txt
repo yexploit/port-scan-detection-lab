@@ -1,0 +1,76 @@
+# Example SIEM Queries for Port Scan Detection
+# Targets: Splunk and ELK (Kibana / Elasticsearch)
+
+########################################
+# 1) Splunk Searches
+########################################
+
+# Assumptions:
+# - Network/firewall/IDS logs are indexed as "index=net" (adjust as needed).
+# - Fields: src_ip, dest_ip, dest_port, action, protocol, _time.
+
+
+# 1.1 Basic Port Scan Detection - Many ports from same source in 5 minutes
+
+index=net action=allowed OR action=blocked
+| bucket _time span=5m
+| stats dc(dest_port) AS uniq_ports count AS total_events BY _time, src_ip
+| where uniq_ports >= 20
+| sort - uniq_ports
+
+
+# 1.2 Horizontal Scan - Many destination hosts from same source
+
+index=net action=allowed OR action=blocked
+| bucket _time span=5m
+| stats dc(dest_ip) AS uniq_hosts count AS total_events BY _time, src_ip, dest_port
+| where uniq_hosts >= 10
+| sort - uniq_hosts
+
+
+# 1.3 SYN Scan Heuristic (if flags field present)
+
+index=net protocol=TCP
+| search flags="S*"  # SYN set; adapt to your field format
+| bucket _time span=5m
+| stats dc(dest_port) AS uniq_ports count AS syn_count BY _time, src_ip
+| where uniq_ports >= 20 AND syn_count > 30
+| sort - uniq_ports
+
+
+########################################
+# 2) ELK / Elasticsearch (KQL-style)
+########################################
+
+# Assumptions:
+# - Index: net-*
+# - Fields: source.ip, destination.ip, destination.port, event.action, network.transport, @timestamp
+
+
+# 2.1 Basic Port Scan Detection (conceptual aggregation)
+#
+# In Kibana Visualization or Lens:
+#
+# - Filter: index = net-*, event.action: ("allowed" OR "blocked")
+# - Group by: source.ip, 5m time buckets
+# - Metric: Unique count of destination.port (uniq_ports)
+# - Threshold: uniq_ports >= 20
+
+
+# 2.2 Horizontal Scan Detection (many dest hosts)
+#
+# Similar approach:
+# - Group by: source.ip, destination.port, 5m buckets
+# - Metric: Unique count of destination.ip (uniq_hosts)
+# - Filter where uniq_hosts >= 10
+
+
+# 2.3 Example Lucene/KQL filter for candidate port scans:
+#
+# KQL:
+#   event.action:(allowed OR blocked) AND network.transport:(tcp OR udp)
+#
+# Use this as a base filter, then build aggregations on top for
+#   - unique destination ports per source.ip
+#   - unique destination ips per source.ip
+
