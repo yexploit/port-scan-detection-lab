@@ -4,6 +4,9 @@ import time
 from collections import defaultdict, Counter
 
 from scapy.all import sniff, rdpcap, IP, TCP, UDP
+from pyfiglet import Figlet
+from colorama import Fore, Style, init
+import shutil
 
 
 # -----------------------------
@@ -15,6 +18,36 @@ HOST_THRESHOLD = 10          # distinct destination hosts
 WINDOW_SECONDS = 60          # time window in seconds
 
 EVENTS_CSV = "portscan_events.csv"
+
+
+init(autoreset=True)
+
+
+def center_text(text: str) -> str:
+    """Center text based on current terminal width."""
+    try:
+        width = shutil.get_terminal_size().columns
+    except OSError:
+        width = 80
+    return text.center(width)
+
+
+def banner() -> None:
+    """Display PORTSCAN / DETECT banner using pyfiglet + colorama."""
+    f = Figlet(font="slant")
+
+    portscan_lines = f.renderText("PORTSCAN").splitlines()
+    detect_lines = f.renderText("DETECT").splitlines()
+
+    print("\n")
+    for p, d in zip(portscan_lines, detect_lines):
+        line = Fore.CYAN + p + "  " + Fore.RED + d
+        print(center_text(line))
+
+    print("\n")
+    print(center_text(Style.BRIGHT + "PORT SCAN DETECTION LAB"))
+    print(center_text(Fore.RED + "By yexploit"))
+    print("\n")
 
 
 class SlidingWindow:
@@ -157,6 +190,7 @@ def live_capture(interface: str) -> None:
 
 
 def main() -> None:
+    banner()
     parser = argparse.ArgumentParser(
         description="Port Scan Detection Analyzer (PCAP or live traffic)"
     )
